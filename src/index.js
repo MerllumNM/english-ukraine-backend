@@ -1,6 +1,8 @@
+console.log('Start');
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const prisma = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -8,9 +10,12 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Health endpoint
-app.get('/api/health', (req, res) => {
-    res.status(200).json({ status: 'OK', message: 'Server is running successfully!' });
+app.get('/api/health', async (req, res) => {
+  try {
+    return res.status(200).json({ status: 'OK' })
+    } catch (error) {
+    res.status(500).json({ status: 'Error', error: error.message });
+  }
 });
 
 app.listen(PORT, () => {
