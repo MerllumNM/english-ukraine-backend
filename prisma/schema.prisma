@@ -8,7 +8,91 @@ datasource db {
 }
 
 model User {
+  id           Int          @id @default(autoincrement())
+  email        String       @unique
+  passwordHash String
+  name         String?
+  role         String       @default("USER")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  reviews     Review[]
+  favorites   Favorite[]
+  testResults TestResult[]
+}
+
+model School {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  location    String?
+  website     String?
+  createdAt   DateTime  @default(now())
+
+  teachers Teacher[]
+  courses  Course[]
+}
+
+model Teacher {
   id        Int      @id @default(autoincrement())
-  email     String   @unique
+  name      String
+  bio       String?
+  avatarUrl String?
+  schoolId  Int?
+  school    School?  @relation(fields: [schoolId], references: [id])
+  createdAt DateTime @default(now())
+
+  reviews   Review[]
+  favorites Favorite[]
+}
+
+model Course {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  price       Float?
+  schoolId    Int?
+  school      School?  @relation(fields: [schoolId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  rating    Int
+  comment   String?
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  teacherId Int?
+  teacher   Teacher? @relation(fields: [teacherId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  teacherId Int
+  teacher   Teacher  @relation(fields: [teacherId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, teacherId])
+}
+
+model TestQuestion {
+  id            Int      @id @default(autoincrement())
+  question      String
+  options       String[]
+  correctAnswer String
+  level         String?
+  createdAt     DateTime @default(now())
+}
+
+model TestResult {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  score     Int
+  total     Int
+  level     String?
   createdAt DateTime @default(now())
 }
