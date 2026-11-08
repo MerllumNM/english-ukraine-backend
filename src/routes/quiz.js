@@ -1,8 +1,13 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
+const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Резервне сховище історії в пам'яті (якщо модель у БД ще не створена)
+const testHistoryStore = [];
 
 // Еталонні запитання із правильними відповідями (зберігаються ЛИШЕ на сервері)
 const quizData = [
@@ -56,7 +61,7 @@ router.get('/questions', async (req, res, next) => {
   }
 });
 
-// POST /api/quiz/submit — Перевірка відповідей та розрахунок балу на сервері (BE-13)
+// POST /api/quiz/submit — Перевірка відповідей та збереження в історію (BE-13 / BE-15)
 router.post('/submit', async (req, res, next) => {
   try {
     const { answers } = req.body;
@@ -65,7 +70,6 @@ router.post('/submit', async (req, res, next) => {
       return res.status(400).json({ error: 'Масив відповідей `answers` є обов’язковим' });
     }
 
-    // Видаляємо дублікати запитань (залишаємо тільки першу відповідь на кожне questionId)
     const uniqueAnswersMap = new Map();
     answers.forEach((ans) => {
       if (ans.questionId && ans.optionId && !uniqueAnswersMap.has(ans.questionId)) {
@@ -93,17 +97,51 @@ router.post('/submit', async (req, res, next) => {
     const total = quizData.length;
     const percentage = Math.round((score / total) * 100);
 
-    // Визначення рівня за набраним балом
     let level = 'A2 (Elementary)';
     if (percentage >= 80) level = 'C1 (Advanced)';
     else if (percentage >= 50) level = 'B2 (Upper-Intermediate)';
     else if (percentage >= 30) level = 'B1 (Intermediate)';
+
+    // Перевіряємо JWT токен, якщо він присутній у заголовку
+    let userId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.id;
+      } catch (err) {
+        // Якщо токен недійсний — обробляємо як неавторизований проходження
+      }
+    }
+
+    const historyRecord = {
+      id: Date.now(),
+      userId,
+      score,
+      total,
+      percentage,
+      level,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Якщо користувач авторизований — зберігаємо результат
+    if (userId) {
+      if (prisma.quizResult) {
+        await prisma.quizResult.create({
+          data: { userId, score, total, percentage, level },
+        });
+      } else {
+        testHistoryStore.push(historyRecord);
+      }
+    }
 
     res.status(200).json({
       score,
       total,
       percentage,
       level,
+      savedToHistory: !!userId,
       details,
     });
   } catch (error) {
@@ -111,7 +149,27 @@ router.post('/submit', async (req, res, next) => {
   }
 });
 
-// POST /api/quiz/recommendations — Алгоритм рекомендацій за результатом тесту (BE-14)
+// GET /api/quiz/history — Перегляд власної історії спроб (Захищений роут BE-15)
+router.get('/history', authMiddleware, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    if (prisma.quizResult) {
+      const history = await prisma.quizResult.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      });
+      return res.status(200).json({ data: history });
+    }
+
+    const userHistory = testHistoryStore.filter((item) => item.userId === userId);
+    res.status(200).json({ data: userHistory });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/quiz/recommendations — Алгоритм рекомендацій (BE-14)
 router.post('/recommendations', async (req, res, next) => {
   try {
     const { level } = req.body;
@@ -120,7 +178,6 @@ router.post('/recommendations', async (req, res, next) => {
       return res.status(400).json({ error: 'Параметр level є обов’язковим' });
     }
 
-    // Базові правила відповідності рівням та спеціалізаціям
     const recommendationsMap = {
       'A2': {
         courses: [{ id: 101, title: 'English Grammar & Basics A2', level: 'A2', price: 2800 }],
@@ -148,11 +205,9 @@ router.post('/recommendations', async (req, res, next) => {
       }
     };
 
-    // Шукаємо збіг рівня (наприклад, з "B2 (Upper-Intermediate)" робимо збіг із "B2")
     let matchedKey = Object.keys(recommendationsMap).find((k) => level.includes(k));
     let matched = matchedKey ? recommendationsMap[matchedKey] : null;
 
-    // Фолбек при відсутності збігу
     if (!matched) {
       matched = {
         courses: recommendationsMap['B2'].courses,
