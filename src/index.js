@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const teacherRoutes = require('./routes/teachers');
+const schoolRoutes = require('./routes/schools');
+const courseRoutes = require('./routes/courses');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -38,6 +40,8 @@ app.use((req, res, next) => {
 // Роути
 app.use('/api/auth', authRoutes);
 app.use('/api/teachers', teacherRoutes);
+app.use('/api/schools', schoolRoutes);
+app.use('/api/courses', courseRoutes);
 
 // Базовий тестовий роут
 app.get('/', (req, res) => {
