@@ -4,6 +4,7 @@ const teacherRoutes = require('./routes/teachers');
 const schoolRoutes = require('./routes/schools');
 const courseRoutes = require('./routes/courses');
 const favoriteRoutes = require('./routes/favorites');
+const quizRoutes = require('./routes/quiz');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -44,6 +45,7 @@ app.use('/api/teachers', teacherRoutes);
 app.use('/api/schools', schoolRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/favorites', favoriteRoutes);
+app.use('/api/quiz', quizRoutes);
 
 // Базовий тестовий роут
 app.get('/', (req, res) => {
