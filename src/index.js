@@ -1,23 +1,24 @@
-console.log('Start');
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const prisma = require('./db');
+
+const authRoutes = require('./routes/auth');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-app.get('/api/health', async (req, res) => {
-  try {
-    return res.status(200).json({ status: 'OK' })
-    } catch (error) {
-    res.status(500).json({ status: 'Error', error: error.message });
-  }
+// Роути
+app.use('/api/auth', authRoutes);
+
+// Базовий перевірочний ендпоінт
+app.get('/', (req, res) => {
+  res.send('API працює успішно!');
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  console.log(`Сервер запущено на порту ${PORT}`);
 });
