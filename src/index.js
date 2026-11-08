@@ -3,6 +3,7 @@ const cors = require('cors');
 const teacherRoutes = require('./routes/teachers');
 const schoolRoutes = require('./routes/schools');
 const courseRoutes = require('./routes/courses');
+const favoriteRoutes = require('./routes/favorites');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -42,6 +43,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/schools', schoolRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/favorites', favoriteRoutes);
 
 // Базовий тестовий роут
 app.get('/', (req, res) => {
