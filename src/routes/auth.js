@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
+const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -58,12 +59,10 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 1. Валідація наявності полів
     if (!email || !password) {
       return res.status(400).json({ error: 'Email та пароль є обов’язковими' });
     }
 
-    // 2. Пошук користувача за email
     const user = await prisma.user.findUnique({
       where: { email },
     });
@@ -72,21 +71,18 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Невірний email або пароль' });
     }
 
-    // 3. Перевірка пароля через bcrypt
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
       return res.status(400).json({ error: 'Невірний email або пароль' });
     }
 
-    // 4. Генерація JWT токена на 24 години
     const token = jwt.sign(
       { id: user.id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 
-    // 5. Повернення токена та базової інфи
     res.status(200).json({
       message: 'Успішний вхід',
       token,
@@ -101,6 +97,37 @@ router.post('/login', async (req, res) => {
     console.error('Помилка входу:', error);
     res.status(500).json({ error: 'Внутрішня помилка сервера' });
   }
+});
+
+// Отримання поточного користувача: GET /api/auth/me (Захищений роут)
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Користувача не знайдено' });
+    }
+
+    res.status(200).json({ user });
+  } catch (error) {
+    console.error('Помилка отримання профілю:', error);
+    res.status(500).json({ error: 'Внутрішня помилка сервера' });
+  }
+});
+
+// Ендпоінт виходу: POST /api/auth/logout
+router.post('/logout', (req, res) => {
+  res.status(200).json({ message: 'Успішний вихід із системи' });
 });
 
 module.exports = router;
