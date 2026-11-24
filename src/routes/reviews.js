@@ -25,10 +25,35 @@ const calculateRatingStats = (reviewsList) => {
   const sum = reviewsList.reduce((acc, r) => acc + r.rating, 0);
   const avg = sum / reviewsList.length;
   return {
-    averageRating: Math.round(avg * 10) / 10, // Округлення до 1 десяткового знака
+    averageRating: Math.round(avg * 10) / 10,
     reviewsCount: reviewsList.length,
   };
 };
+
+// GET /api/reviews — Отримати всі останні відгуки для головної сторінки
+router.get('/', async (req, res, next) => {
+  try {
+    if (prisma.review) {
+      const reviews = await prisma.review.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        include: {
+          user: {
+            select: { id: true, name: true },
+          },
+          teacher: {
+            select: { id: true, name: true },
+          },
+        },
+      });
+      return res.status(200).json(reviews);
+    }
+
+    res.status(200).json(reviewsStore);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // GET /api/reviews/teacher/:teacherId/rating — Отримати розрахований рейтинг викладача
 router.get('/teacher/:teacherId/rating', async (req, res, next) => {
@@ -131,7 +156,6 @@ router.post('/', authMiddleware, async (req, res, next) => {
       return res.status(400).json({ error: 'Некоректний або відсутній teacherId' });
     }
 
-    // Валідація оцінки (від 1 до 5)
     if (isNaN(parsedRating) || parsedRating < 1 || parsedRating > 5) {
       return res.status(400).json({ error: 'Оцінка повинна бути цілим числом від 1 до 5' });
     }

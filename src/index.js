@@ -12,7 +12,7 @@ const authRoutes = require('./routes/auth');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // Налаштування CORS під фронтенд
 const allowedOrigins = process.env.CLIENT_URL 
